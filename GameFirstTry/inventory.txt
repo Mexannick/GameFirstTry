@@ -1,0 +1,7 @@
+Common: 11
+Uncommon: 3
+Rare: 6
+Epic: 1
+Legendary: 0
+Forbidden: 0
+MonstersKilled: 30
