@@ -2,7 +2,7 @@
 #include <vector>
 #include <cstdlib>
 #include <ctime>
-#include <fstream> 
+#include <fstream>
 #include <string>
 
 using namespace std;
@@ -103,10 +103,18 @@ private:
         map[player.y][player.x] = 'O';
 
         // Генерация монстров
+        //Не баг, а фича: иногда спавнится в артефакте или вовсе невидимка
         monsters.clear();
         int monsterCount = levelNumber + 2;
         for (int i = 0; i < monsterCount; i++) {
-            Monster monster = { rand() % (MAP_WIDTH - 2) + 1, rand() % (MAP_HEIGHT - 2) + 1, rand() % 3 + 1 };
+            Monster monster;
+            do {
+                monster.x = rand() % (MAP_WIDTH - 2) + 1;
+                monster.y = rand() % (MAP_HEIGHT - 2) + 1;
+            } while ((monster.x == player.x && monster.y == player.y) ||  // Проверка на позицию игрока
+                (map[monster.y][monster.x] == 'Y'));  // Проверка на позицию лестницы
+
+            monster.health = rand() % 3 + 1;
             monsters.push_back(monster);
             map[monster.y][monster.x] = 'M';
         }
@@ -115,12 +123,19 @@ private:
         artifacts.clear();
         int artifactCount = levelNumber + 1;
         for (int i = 0; i < artifactCount; i++) {
-            Artifact artifact = { rand() % (MAP_WIDTH - 2) + 1, rand() % (MAP_HEIGHT - 2) + 1, generateArtifactRarity() };
+            Artifact artifact;
+            do {
+                artifact.x = rand() % (MAP_WIDTH - 2) + 1;
+                artifact.y = rand() % (MAP_HEIGHT - 2) + 1;
+            } while ((artifact.x == player.x && artifact.y == player.y) ||
+                (map[artifact.y][artifact.x] == 'Y'));
+
+            artifact.rarity = generateArtifactRarity(artifact.healthAdd);
             artifacts.push_back(artifact);
             map[artifact.y][artifact.x] = 'A';
         }
-
     }
+
 
     // Отрисовка карты и информации о состоянии игрока
     void printMap() {
@@ -148,10 +163,10 @@ private:
         int newX = player.x;
         int newY = player.y;
 
-        if (command == 'w') newY--;
-        else if (command == 's') newY++;
-        else if (command == 'a') newX--;
-        else if (command == 'd') newX++;
+        if (command == 'w' or command == 'ц') newY--;
+        else if (command == 's' or command == 'ы') newY++;
+        else if (command == 'a' or command == 'ф') newX--;
+        else if (command == 'd' or command == 'в') newX++;
         cout << map[newY][newX] << endl;
 
         if (map[newY][newX] == 'Y') {
@@ -234,21 +249,48 @@ private:
     void collectArtifact(Artifact& artifact) {
         cout << "You found an artifact of rarity " << rarity_names[artifact.rarity] << "!" << endl;
         player.artifact_count[artifact.rarity]++;
+
+        // Добавление здоровья игроку
+        player.health += artifact.healthAdd;
+        if (player.health > PLAYER_MAX_HEALTH) {
+            player.health = PLAYER_MAX_HEALTH;  // Здоровье не может превышать максимальный уровень
+        }
+        cout << "You gained " << artifact.healthAdd << " health points!" << endl;
+
+        // Если артефакт редкий (Legendary или Forbidden), меняем оружие
         if (artifact.rarity == LEGENDARY || artifact.rarity == FORBIDDEN) {
             player.weapon = rarity_names[artifact.rarity] + string(" Weapon");
             cout << "You equipped the " << player.weapon << "!" << endl;
         }
     }
 
-    // Генерация редкости артефакта
-    ArtifactRarity generateArtifactRarity() {
+    // Генерация редкости артефакта и количества восстанавливаемого здоровья
+    ArtifactRarity generateArtifactRarity(int& healthAdd) {
         int roll = rand() % 100 + 1;  // Значение от 1 до 100
-        if (roll <= 40) return COMMON;      // 40% шанс
-        else if (roll <= 65) return UNCOMMON; // 25% шанс
-        else if (roll <= 85) return RARE;      // 20% шанс
-        else if (roll <= 95) return EPIC;      // 10% шанс
-        else if (roll <= 99) return LEGENDARY; // 4% шанс
-        else return FORBIDDEN;                // 1% шанс
+        if (roll <= 40) {
+            healthAdd = 1;  // Common: +1 здоровье
+            return COMMON;
+        }
+        else if (roll <= 65) {
+            healthAdd = 2;  // Uncommon: +2 здоровья
+            return UNCOMMON;
+        }
+        else if (roll <= 85) {
+            healthAdd = 3;  // Rare: +3 здоровья
+            return RARE;
+        }
+        else if (roll <= 95) {
+            healthAdd = 5;  // Epic: +5 здоровья
+            return EPIC;
+        }
+        else if (roll <= 99) {
+            healthAdd = 10;  // Legendary: +10 здоровья
+            return LEGENDARY;
+        }
+        else {
+            healthAdd = 20;  // Forbidden: +20 здоровья
+            return FORBIDDEN;
+        }
     }
 
     // Сохранение инвентаря в файл
@@ -310,6 +352,8 @@ private:
 };
 
 int main() {
+    setlocale(0, "rus");
+    system("chcp 1251");
     Game game;
     game.play();
     return 0;
