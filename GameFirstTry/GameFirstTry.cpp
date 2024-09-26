@@ -12,7 +12,7 @@ const int MAP_WIDTH = 20;
 const int MAP_HEIGHT = 10;
 
 // Максимальное здоровье игрока
-const int PLAYER_MAX_HEALTH = 20;
+const int PLAYER_MAX_HEALTH = 60;
 
 // Список редкости артефактов
 enum ArtifactRarity { COMMON, UNCOMMON, RARE, EPIC, LEGENDARY, FORBIDDEN };
@@ -38,6 +38,13 @@ struct Artifact {
     int x, y;
     ArtifactRarity rarity;
     int healthAdd;
+};
+
+// Структура торговца
+struct Merchant {
+    int x, y;
+    bool hasSword;  // Флаг наличия меча у торговца
+    bool hasPlot;   // Флаг наличия места для постройки
 };
 
 // Класс игры
@@ -76,6 +83,7 @@ private:
     Player player;
     vector<Monster> monsters;
     vector<Artifact> artifacts;
+    Merchant merchant;  // Торговец
     int levelNumber;
 
     // Генерация карты с игроком, монстрами и артефактами
@@ -114,7 +122,7 @@ private:
             } while ((monster.x == player.x && monster.y == player.y) ||  // Проверка на позицию игрока
                 (map[monster.y][monster.x] == 'Y'));  // Проверка на позицию лестницы
 
-            monster.health = rand() % 3 + 1;
+            monster.health = 3;
             monsters.push_back(monster);
             map[monster.y][monster.x] = 'M';
         }
@@ -133,6 +141,17 @@ private:
             artifact.rarity = generateArtifactRarity(artifact.healthAdd);
             artifacts.push_back(artifact);
             map[artifact.y][artifact.x] = 'A';
+        }
+        // Генерация торговца на уровнях 5 и 10
+        if (levelNumber == 5 || levelNumber == 10) {
+            do {
+                merchant.x = rand() % (MAP_WIDTH - 2) + 1;
+                merchant.y = rand() % (MAP_HEIGHT - 2) + 1;
+            } while ((merchant.x == player.x && merchant.y == player.y));
+
+            merchant.hasSword = (levelNumber == 5);  // Меч доступен на 5-м уровне
+            merchant.hasPlot = (levelNumber == 10);  // Место для постройки доступно на 10-м уровне
+            map[merchant.y][merchant.x] = 'T';  // Обозначение торговца
         }
     }
 
@@ -224,24 +243,87 @@ private:
                 return;
             }
         }
-
-
+        // Проверка на торговца
+        if (player.x == merchant.x && player.y == merchant.y) {
+            interactWithMerchant();
+            return;
+        }
+    }
+    // Взаимодействие с торговцем
+    void interactWithMerchant() {
+        cout << "You encountered a merchant!" << endl;
+        if (merchant.hasSword) {
+            cout << "The merchant offers you a sword that kills monsters in 2 hits." << endl;
+            cout << "Price: 2 Common artifacts and 2 Uncommon artifacts." << endl;
+            if (player.artifact_count[COMMON] >= 2 && player.artifact_count[UNCOMMON] >= 2) {
+                cout << "Do you want to buy the sword? (y/n): ";
+                char choice;
+                cin >> choice;
+                if (choice == 'y' || choice == 'н') {
+                    player.artifact_count[COMMON] -= 2;
+                    player.artifact_count[UNCOMMON] -= 2;
+                    player.weapon = "2-hit Sword";
+                    merchant.hasSword = false;
+                    cout << "You bought the sword!" << endl;
+                }
+            }
+            else {
+                cout << "You don't have enough artifacts." << endl;
+            }
+        }
+        else if (merchant.hasPlot) {
+            cout << "The merchant offers you a plot of land to build on." << endl;
+            cout << "Price: 1 Rare artifact and 1 Epic artifact." << endl;
+            if (player.artifact_count[RARE] >= 1 && player.artifact_count[EPIC] >= 1) {
+                cout << "Do you want to buy the plot? (y/n): ";
+                char choice;
+                cin >> choice;
+                if (choice == 'y' || choice == 'н') {
+                    player.artifact_count[RARE] -= 1;
+                    player.artifact_count[EPIC] -= 1;
+                    merchant.hasPlot = false;
+                    cout << "You bought the plot of land!" << endl;
+                }
+            }
+            else {
+                cout << "You don't have enough artifacts." << endl;
+            }
+        }
+        else {
+            cout << "The merchant has nothing to offer at the moment." << endl;
+        }
     }
 
     // Бой с монстром
     void fightMonster(Monster& monster) {
         while (player.health > 0 && monster.health > 0) {
-            int playerRoll = rand() % 31;  // Значение для игрока от 0 до 30
-            int monsterRoll = rand() % 21; // Значение для монстра от 0 до 20
+            if (player.weapon == "2-hit Sword") {
+                int playerRoll = rand() % 41;  // Значение для игрока от 0 до 40
+                int monsterRoll = rand() % 21; // Значение для монстра от 0 до 20
 
-            if (playerRoll > monsterRoll) {
-                cout << "You hit the monster!" << endl;
-                monster.health -= 1;
+                if (playerRoll > monsterRoll) {
+                    cout << "You hit the monster!" << endl;
+                    monster.health -= 1;
+                }
+                else {
+                    cout << "The monster hits you!" << endl;
+                    player.health -= 1;
+                }
             }
             else {
-                cout << "The monster hits you!" << endl;
-                player.health -= 1;
+                int playerRoll = rand() % 21;  // Значение для игрока от 0 до 20
+                int monsterRoll = rand() % 21; // Значение для монстра от 0 до 20
+
+                if (playerRoll > monsterRoll) {
+                    cout << "You hit the monster!" << endl;
+                    monster.health -= 1;
+                }
+                else {
+                    cout << "The monster hits you!" << endl;
+                    player.health -= 1;
+                }
             }
+
         }
     }
 
@@ -352,7 +434,6 @@ private:
 };
 
 int main() {
-    setlocale(0, "rus");
     system("chcp 1251");
     Game game;
     game.play();
